@@ -1,2 +1,2 @@
-# proyecto_3_datos
-Repositorio para el proyecto 3 de Estructuras de datos
+Carlos Fernando Infante 201713454
+Francisco Javier González 201713245
