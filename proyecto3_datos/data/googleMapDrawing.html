@@ -1,0 +1,146 @@
+  <!DOCTYPE html>
+<html>
+  <head>
+    <title>Mapa</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body 
+      {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      var map;
+      var loc = {lat: 41.798797104, lng: -87.708637865};
+      var loc2 = {lat: 41.949829346, lng: -87.64396537};
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), 
+        {
+          center: loc,
+          zoom: 17
+        });
+
+        // Create a marker and set its position.
+        var marker = new google.maps.Marker({
+          map: map,
+          position: loc,
+          draggable: true,
+          animation: google.maps.Animation.DROP,
+          label: 'Vertex 1'
+        });
+        var circle = new google.maps.Circle({
+            strokeColor: '#00FF3A',
+            strokeOpacity: 0.6,
+            strokeWeight: 1,
+            // fillColor: '#FF0000',
+            fillColor: '#5EE719',
+            fillOpacity: 0.35,
+            map: map,
+            center: loc,
+            radius: 100
+        });
+                var marker2 = new google.maps.Marker({
+          map: map,
+          position: loc2,
+          draggable: true,
+          animation: google.maps.Animation.DROP,
+          label: 'Vertex 2'
+        });
+        var circle2 = new google.maps.Circle({
+            strokeColor: '#00FF3A',
+            strokeOpacity: 0.6,
+            strokeWeight: 1,
+            // fillColor: '#FF0000',
+            fillColor: '#5EE719',
+            fillOpacity: 0.35,
+            map: map,
+            center: loc2,
+            radius: 100
+        });
+        var flightPlanCoordinates = [
+          {lat: 41.798797104, lng: -87.708637865},
+          {lat: 41.949829346, lng: -87.64396537},
+        ];
+        var flightPath = new google.maps.Polyline({
+          path: flightPlanCoordinates,
+          geodesic: true,
+          strokeColor: '#5EE719',
+          strokeOpacity: 1.0,
+          strokeWeight: 2
+        });
+
+        flightPath.setMap(map);
+
+        //-----------------
+        //pruebas
+        var start = new google.maps.LatLng(41.885621155, -87.698891591);
+        var end = new google.maps.LatLng(41.972562538, -87.678845966);
+
+        var directionsService = new google.maps.DirectionsService;
+        var directionsDisplay = new google.maps.DirectionsRenderer({
+          draggable: true,
+          map: map,
+          // panel: document.getElementById('right-panel')
+        });
+
+        directionsDisplay.addListener('directions_changed', function() {
+          computeTotalDistance(directionsDisplay.getDirections());
+        });
+
+        displayRoute(start, end, directionsService,
+            directionsDisplay);
+
+
+      }
+
+      function displayRoute(origin, destination, service, display) 
+      {
+        service.route(
+        {
+          origin: origin,
+          destination: destination,
+          // waypoints: [{location: 'Adelaide, SA'}, {location: 'Broken Hill, NSW'}],
+          travelMode: 'DRIVING',
+          avoidTolls: true
+        }, 
+        function(response, status) 
+        {
+          if (status === 'OK') 
+          {
+            display.setDirections(response);
+          } 
+          else 
+          {
+            alert('Could not display directions due to: ' + status);
+          }
+        });
+      }
+
+      function computeTotalDistance(result) {
+        var total = 0;
+        var myroute = result.routes[0];
+        for (var i = 0; i < myroute.legs.length; i++) {
+          total += myroute.legs[i].distance.value;
+        }
+        total = total / 1000;
+        document.getElementById('total').innerHTML = total + ' km';
+      }
+        //-------------------
+       
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCezLelBYGF40NF_TauXSX0NGVrnGKGeVU&callback=initMap"
+    async defer></script>
+  </body>
+</html>

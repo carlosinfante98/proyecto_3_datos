@@ -1,0 +1,304 @@
+
+	public boolean cargarSistema(String direccionJson, int dx)
+	{
+		this.dx = dx;
+		JsonParser parser = new JsonParser();
+		try 
+		{
+			/* Cargar todos los JsonObject (servicio) definidos en un JsonArray en el archivo */
+			JsonArray arr= (JsonArray) parser.parse(new FileReader(direccionJson));
+			/* Tratar cada JsonObject (Servicio taxi) del JsonArray */
+			for (int i = 0; arr != null && i < arr.size(); i++)
+			{
+				JsonObject obj= (JsonObject) arr.get(i);
+
+				String company_name = obj.get(COMPANY) != null ? obj.get(COMPANY).getAsString() : "Independent Owner";
+
+				String taxi_id = obj.get(TAXI_ID) != null ? obj.get(TAXI_ID).getAsString() : "NaN";
+
+				String trip_id = obj.get(TRIP_ID) != null ? obj.get(TRIP_ID).getAsString(): "NaN";			
+
+				int drop_off_area = obj.get(DOFF_AREA) != null ? obj.get(DOFF_AREA).getAsInt() : -1;			
+
+				int trip_sec = obj.get(TRIP_SECONDS) != null ? obj.get(TRIP_SECONDS).getAsInt(): -1;
+
+				double trip_miles = obj.get(TRIP_MILES) != null ? obj.get(TRIP_MILES).getAsDouble() : -1.0;
+
+				double trip_total = obj.get(TRIP_TOTAL) != null ? obj.get(TRIP_TOTAL).getAsDouble() : 0.0;
+
+				double pickup_c_latitude = obj.get(PICK_UP_LATITUD) != null ? obj.get(PICK_UP_LATITUD).getAsDouble():0.0001700017;
+
+				double pickup_c_longitude = obj.get(PICK_UP_LONGITUD) != null ? obj.get(PICK_UP_LONGITUD).getAsDouble():0.0001700017;
+
+				int pick_up_area = obj.get(PUP_AREA) != null ? obj.get(PUP_AREA).getAsInt() : -1;
+
+				String fi = obj.get(START_TIME) != null ? obj.get(START_TIME).getAsString() : "2025-09-24T00:00:00.000";
+
+				String ff = obj.get(END_TIME) != null ? obj.get(END_TIME).getAsString() : "2025-09-24T00:00:00.000";
+
+				double dropoff_c_latitude = obj.get(DROP_OFF_LATITUDE) != null ? obj.get(DROP_OFF_LATITUDE).getAsDouble():0.0001700017;
+
+				double dropoff_c_longitude = obj.get(DROP_OFF_LONGITUDE) != null ? obj.get(DROP_OFF_LONGITUDE).getAsDouble():0.0001700017;
+
+				boolean tolls =  obj.get(TOLLS) != null ? (obj.get(TOLLS).getAsDouble() != 0 ? true :false) : false;
+
+				//Verificaciones de adici�n
+				if(pickup_c_latitude != 0.0001700017 && pickup_c_longitude != 0.0001700017 && dropoff_c_latitude != 0.0001700017 && dropoff_c_longitude != 0.0001700017)
+				{
+					//Aca ya puede empezar a agregar al grafo
+
+					String pickUpInfo = pickup_c_latitude + "," + pickup_c_longitude;
+					String dropOffInfo = dropoff_c_latitude + "," + dropoff_c_longitude;
+
+					//Si no hay ning�n v�rtice dentro del grafo. Primera iteraci�n
+					if(graph.V() == 0)
+					{
+						if(pickUpInfo.equals(dropOffInfo))
+						{
+							graph.addVertex(pickUpInfo, new InformacionVertice(pickup_c_latitude, pickup_c_longitude));
+							graph.getInfoVertex(pickUpInfo).getOutgoingServices().add(trip_id);
+						}
+						else
+						{
+							graph.addVertex(pickUpInfo, new InformacionVertice(pickup_c_latitude, pickup_c_longitude));
+							graph.addVertex(dropOffInfo, new InformacionVertice(dropoff_c_latitude, dropoff_c_longitude));
+							
+							graph.getInfoVertex(pickUpInfo).getOutgoingServices().add(trip_id);
+							graph.getInfoVertex(dropOffInfo).getIncomingServices().add(trip_id);
+						}
+						graph.addEdge(pickUpInfo, dropOffInfo, new InformacionArcoServicios(trip_miles, trip_total, trip_sec, tolls ? 1 : 0));
+					}
+					//Ya hay por lo menos un v�rtice en el grafo
+					else
+					{
+						//Contador de las llaves de los vertices a los que puede pertenecer el servicio.
+						int llavesVerticesInicial = 0;
+						int llavesVerticesFinal = 0;
+
+						//Se guarda aqui la llave del vertice con el que se tenga menor distancia Harvesiana
+						double menorDistanciaInicial = Double.MAX_VALUE;
+						String llaveMenorInicial = "";
+						double menorDistanciaFinal = Double.MAX_VALUE;
+						String llaveMenorFinal = "";
+
+						//Lista que contiene todas llaves que ya existen en el grafo.
+						ArrayListNotComparable<Vertex<String, InformacionVertice, InformacionArcoServicios >> lista = graph.getV();
+						for (int j = 0; j < graph.V(); j++) 
+						{
+							String llaveActual = lista.get(j).getId();
+
+							double lat1 = Double.parseDouble(llaveActual.split(",")[0]);
+							double lon1 = Double.parseDouble(llaveActual.split(",")[1]);
+
+							//Se consiguen las distancias Harvesianas
+							double distanciaHarvesianaInicial = getHarvesianDistance(lat1, lon1,  (pickup_c_latitude), (pickup_c_longitude));
+							double distanciaHarvesianaFinal = getHarvesianDistance(lat1, lon1, (dropoff_c_latitude), (dropoff_c_longitude));
+
+							//Se revisa que la distancia harvesiana no sea mas grande que Chicago
+							if(distanciaHarvesianaInicial > 53000 || distanciaHarvesianaFinal > 53000)
+							{
+								continue;
+							}
+							//Si la distancia harvesiana es menor a dx, entonces pertenece a ese v�rtice
+							if(distanciaHarvesianaInicial <= dx)
+							{
+								//Quiere decir que pertenece al vertice actual del for
+								llavesVerticesInicial++;
+								if(distanciaHarvesianaInicial < menorDistanciaInicial)
+								{
+									menorDistanciaInicial = distanciaHarvesianaInicial;
+									llaveMenorInicial = llaveActual;
+								}
+							}
+							//Si la distancia harvesiana es menor a dx, entonces pertenece a ese v�rtice
+							if(distanciaHarvesianaFinal <= dx)
+							{
+								//Quiere decir que pertenece al vertice actual del for
+								llavesVerticesFinal++;
+								if(distanciaHarvesianaFinal < menorDistanciaFinal)
+								{
+									menorDistanciaFinal = distanciaHarvesianaFinal;
+									llaveMenorFinal = llaveActual;
+								}
+							}
+						}
+						double totalMoney = 0.0;
+						double totalMeters = 0.0;
+						int totalSeconds = 0;
+						int totalOfServicesInConsideration = 0;
+						int numServWithToll = 0;
+
+						//Al salir del for ya se sabe el numero total de llaves de los vertices a los que pertenece el servicio
+						//Esto significa que el servicio no pertenece a ning�n v�rtice existente
+						if(llavesVerticesInicial == 0 && llavesVerticesFinal == 0)
+						{
+							//Lista para meter todos los servicios en un vertice.
+							if(pickUpInfo.equals(dropOffInfo))
+							{
+								graph.addVertex(pickUpInfo, new InformacionVertice(pickup_c_latitude, pickup_c_longitude));
+								graph.getInfoVertex(pickUpInfo).getOutgoingServices().add(trip_id);
+							}
+							else
+							{
+								graph.addVertex(pickUpInfo, new InformacionVertice(pickup_c_latitude, pickup_c_longitude));
+								graph.addVertex(dropOffInfo, new InformacionVertice(dropoff_c_latitude, dropoff_c_longitude));
+								
+								graph.getInfoVertex(pickUpInfo).getOutgoingServices().add(trip_id);
+								graph.getInfoVertex(dropOffInfo).getIncomingServices().add(trip_id);
+							}
+							graph.addEdge(pickUpInfo, dropOffInfo, new InformacionArcoServicios(trip_miles, trip_total, trip_sec, tolls ? 1 : 0));
+						}
+						//Esto significa que el servicio pertenece a algun vertice para el pickup
+						else if(llavesVerticesInicial != 0 && llavesVerticesFinal == 0)
+						{
+							//Agregar servicio a la lista de salida del respectivo vertice.
+							ArrayListT<String> losServi = graph.getInfoVertex(llaveMenorInicial).getOutgoingServices();
+							losServi.add(trip_id);
+
+							graph.addVertex(dropOffInfo, new InformacionVertice(dropoff_c_latitude, dropoff_c_longitude));
+							graph.getInfoVertex(dropOffInfo).getIncomingServices().add(trip_id);
+							
+							InformacionArcoServicios info = new InformacionArcoServicios(trip_miles, trip_total, trip_sec, tolls ? 1 : 0);
+							graph.addEdge(llaveMenorInicial, dropOffInfo, info);
+						}
+						//Esto significa que el servicio pertenece a algun vertice para el dropoff
+						else if(llavesVerticesInicial == 0 && llavesVerticesFinal != 0)
+						{
+							//A�adir a la lista de llegada del vertice
+							ArrayListT<String> losServi = graph.getInfoVertex(llaveMenorFinal).getIncomingServices();
+							losServi.add(trip_id);
+					
+							//Se crea la lista de salida del vertice nuevo y se le a�ade su respectivo servicio
+							graph.addVertex(pickUpInfo, new InformacionVertice(pickup_c_latitude, pickup_c_longitude));
+							graph.getInfoVertex(pickUpInfo).getOutgoingServices().add(trip_id);
+							
+							InformacionArcoServicios info = new InformacionArcoServicios(trip_miles, trip_total, trip_sec, tolls ? 1 : 0);
+							graph.addEdge(pickUpInfo, llaveMenorFinal, info);
+						}
+						//Significa que si pertenece a alg�n vertice. en llaveMenor se tiene la llave del v�rtice de menor distancia.
+						else
+						{
+							ArrayListT<String> losServi = graph.getInfoVertex(llaveMenorInicial).getOutgoingServices();
+							losServi.add(trip_id);
+							graph.getInfoVertex(llaveMenorFinal).getIncomingServices().add(trip_id);
+
+							InformacionArcoServicios info = graph.getInfoEdge(llaveMenorInicial, llaveMenorFinal);
+							if(info == null)
+							{
+							InformacionArcoServicios infoEdge = new InformacionArcoServicios(trip_miles, trip_total, trip_sec, tolls ? 1 : 0);
+							graph.addEdge(llaveMenorInicial, llaveMenorFinal, infoEdge);								
+							}
+							else
+							{
+								graph.getInfoEdge(llaveMenorInicial, llaveMenorFinal).addService(trip_miles, trip_total, trip_sec, tolls ? 1 : 0);
+							}
+						}
+					}
+				}
+			}
+			System.out.println("Numero de vertices es: " + graph.V());
+			System.out.println("Numero de arcos es: " + graph.E());
+
+			persistirGrafo();
+		}
+		catch (JsonIOException e1 ) 
+		{
+			e1.printStackTrace();
+		}
+		catch (JsonSyntaxException e2) 
+		{
+			e2.printStackTrace();
+		}
+		catch (FileNotFoundException e3) 
+		{
+			e3.printStackTrace();
+		} 
+
+		return false;
+	}
+	public void cargarLeame(String tipo)
+	{
+		PrintWriter pw;
+		try 
+		{
+			pw = new PrintWriter(new FileWriter(archivo, true));
+			pw.println("------------------------");
+			pw.println("Grafo tipo " + tipo);
+			pw.println("El radio de los vertices es: "+dx + "m");
+			pw.println("Numero de vertices es: " + graph.V());
+			pw.println("Numero de arcos es: " + graph.E());
+			pw.println();
+			pw.close();
+		} 
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public void persistirGrafo()
+	{
+		try
+		{
+			JsonWriter writer = new JsonWriter(new FileWriter("./data/graphs/graphDistance-100.json"));
+			ArrayListNotComparable<Vertex<String, InformacionVertice, InformacionArcoServicios >> vertices = graph.getV();
+			writer.setSerializeNulls(true);
+			writer.beginArray(); // [ inicia el arreglo de todo el grafo
+			//Toca comenzar a crear los vertices aqui
+			for (int i = 0; i < vertices.size(); i++)
+			{
+				writer.beginObject(); //{ comienza vertice
+				writer.name("id").value("" + vertices.get(i).getId()); //"id" : "-123213,478234"
+				writer.name("latitude").value(Double.parseDouble(vertices.get(i).getId().split(",")[0])); //"id" : "-123213"
+				writer.name("longitude").value(Double.parseDouble(vertices.get(i).getId().split(",")[1])); //"id" : "478234"
+				writer.name("value"); //"value": 
+				writer.beginObject(); //{
+				writer.name("outgoingServices"); // "outgoingServices" :
+				writer.beginArray(); // [  comienza el arreglo de outgoingServices del vertice
+				ArrayListT<String> servInicio = vertices.get(i).getValue().getOutgoingServices();
+				for (int j = 0; j < servInicio.size(); j++)
+				{
+					writer.value(servInicio.get(j));  //trip_id : "abd232bahdjasdjhczx"
+				}
+				writer.endArray(); // ] acaba el arreglo de outgoingServices del vertice
+				
+				writer.name("incomingServices"); // "incomingServices" :
+				writer.beginArray(); // [  comienza el arreglo de servicios del vertice
+				ArrayListT<String> servFin = vertices.get(i).getValue().getIncomingServices();
+				for (int j = 0; j < servFin.size(); j++)
+				{
+					writer.value(servFin.get(j));  //trip_id : "abd232bahdjasdjhczx"
+				}
+				writer.endArray(); // ] acaba el arreglo de outgoingServices del vertice
+				
+				writer.endObject(); // } acaba value
+
+				writer.endObject(); // } termina vertice
+			}
+
+			//Aqui acaba de crear los vertices, toca crear los arcos
+			writer.beginObject(); // { empieza el objeto para guardar edges
+			writer.name("edges"); // "edges":
+			writer.beginArray();  // [ empieza el arreglo de los arcos
+			for (int i = 0; i < graph.edges().size(); i++) 
+			{
+				Edge<String, InformacionArcoServicios> e = graph.edges().get(i);
+				writer.beginObject(); // { empieza el objeto del arco
+				InformacionArcoServicios informacion = e.getElement(); //Obtenemos informacion del arco del vertice en cuestion
+				writer.name("accumulatedSeconds").value(informacion.getSeconds());//segundos acumulados(promedio) de los servicios involucrados en el arco dado
+				writer.name("accumulatedMiles").value(informacion.getMiles());//millas acumuladas(promedio) de los servicios involucrados en el arco dado
+				writer.name("accumulatedCash").value(informacion.getMoney());//dinero acumulado(promedio) de los servicios involucrados en el arco dado
+				writer.name("numTolls").value(informacion.getNumeroDeServiciosPeaje());//numero de peajes en el arco dado
+				writer.name("idArrivalVertex").value(""+e.getIdVertStart());
+				writer.name("idDepartureVertex").value(""+e.getIdVertEnd());
+				writer.endObject(); // } termina el objeto del arco
+			}
+			writer.endArray(); // ] termina el arreglo de los arcos
+			writer.endObject(); // } termina el objeto para guardar edges
+			writer.endArray(); // ] esto acaba el arreglo de todo el grafo
+			writer.close();
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
